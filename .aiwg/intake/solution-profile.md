@@ -1,0 +1,196 @@
+# Solution Profile
+
+**Document Type**: Greenfield Project Profile
+**Generated**: 2026-02-27
+
+## Profile Selection
+
+**Profile**: MVP
+
+**Selection Logic**:
+- **Timeline**: Not specified — inferred as 8–14 weeks based on scope (web-only v1 with backend + frontend)
+- **Users**: External users (public chess enthusiasts); not yet validated
+- **Revenue**: Not revenue-generating for MVP; proving viability
+- **Compliance**: No mandatory compliance requirements (GDPR awareness only)
+- **Criticality**: Moderate — user accounts and puzzle progress, but no financial or health data
+
+**Chosen**: MVP — **Rationale**: The project is at proof-of-concept stage with a well-defined feature set (random puzzles, auth, progress tracking) targeting initial public users. No compliance requirements, modest initial scale expectation, and a clean tech stack with a focused domain. MVP profile balances shipping speed with sufficient quality for external users.
+
+**Revisit trigger**: Upgrade to Production profile when: (a) >500 registered users with progress data, (b) GDPR-specific controls needed for EU marketing, or (c) SLA commitments made to users/partners.
+
+---
+
+## Profile Characteristics
+
+### Security
+
+**Posture**: Baseline
+
+**Rationale**: The platform handles user credentials (email + password hash) and progress history — classified as Confidential/PII. No payment data, no PHI, no regulated industry. Baseline security is appropriate and proportionate.
+
+**Controls Included**:
+- **Authentication**: JWT-based access + refresh tokens; bcrypt password hashing (cost ≥ 12)
+- **Authorization**: User-scoped data access (users cannot access other users' data)
+- **Data Protection**: HTTPS enforced (TLS 1.2+); bcrypt for passwords; no plaintext secrets in code
+- **Secrets Management**: Environment variables for development; cloud secrets manager for production (AWS Secrets Manager or equivalent)
+- **Audit Logging**: Basic auth event logging (login, registration, failed attempts) — sufficient for MVP
+- **Rate Limiting**: Auth endpoints rate-limited to prevent brute-force
+
+**Gaps/Additions from profile default**:
+- Add GDPR account deletion endpoint pre-public-launch (not strictly MVP but recommended before marketing to EU)
+- Dependency scanning: `pip-audit` (Python) + `npm audit` (Node.js) in CI pipeline
+
+---
+
+### Reliability
+
+**Targets**:
+- **Availability**: 99% uptime (acceptable downtime: ~7 hours/month for MVP)
+- **Latency**: p95 < 300ms for puzzle fetch; p95 < 200ms for auth endpoints
+- **Error Rate**: < 1% 5xx error rate in steady state
+
+**Monitoring Strategy**: Structured logs + basic metrics
+
+**Specific monitoring plan**:
+- **Logging**: JSON structured logs from FastAPI (uvicorn access logs + app-level structured logging)
+- **Error tracking**: Sentry (free tier) for exception monitoring and alerting
+- **Metrics**: Basic FastAPI request/response metrics (latency, status codes) via middleware
+- **Alerting**: Email notification on sustained 5xx error rate (>5% over 5 min window) or downtime detection
+
+**Revisit trigger**: Upgrade to Production monitoring (APM, distributed tracing, on-call rotation) when user count exceeds 1,000 or SLA commitments are made.
+
+---
+
+### Testing & Quality
+
+**Coverage Target**: 50–60% overall; 80%+ for critical paths
+
+**Critical paths requiring 80%+ coverage**:
+- Authentication (registration, login, token refresh, logout)
+- Puzzle data pipeline (import, parsing, database storage)
+- Puzzle fetch API (random selection, response schema)
+- User progress API (save result, retrieve history)
+
+**Test Types**:
+- **Unit**: pytest (Python) + Jest (TypeScript) — function-level logic
+- **Integration**: pytest with TestClient (FastAPI) — API endpoint testing against test database
+- **E2E**: Not required for MVP; add Playwright for critical user flows in Production profile
+- **Performance**: Not required for MVP; add k6 load testing before public launch at scale
+- **Security**: `pip-audit` + `npm audit` in CI; OWASP Top 10 awareness in code review
+
+**Quality Gates** (CI pipeline):
+- Linting: `ruff` (Python) + `eslint` (TypeScript) — required to pass
+- Tests: All unit and integration tests must pass
+- Coverage: Minimum 50% overall coverage gate enforced in CI
+- Security: Dependency scan (`pip-audit`) — no critical/high CVEs allowed to merge
+
+---
+
+### Process Rigor
+
+**SDLC Adoption**: Moderate
+
+**Rationale**: Small team (1–3 developers), MVP scope, focused domain. Enough rigor to coordinate and document decisions without overhead that slows delivery.
+
+**Key Artifacts** (required for MVP):
+- `requirements.md` (exists ✓) — project overview and feature list
+- `project-intake.md` (this intake) — scope, architecture, risks
+- `solution-profile.md` (this file) — quality and process standards
+- `option-matrix.md` — architectural trade-off analysis
+- `README.md` — setup, development, and deployment instructions (create during Elaboration)
+- OpenAPI spec — auto-generated by FastAPI, document key endpoints
+- Basic architecture diagram — FastAPI + Next.js + PostgreSQL component diagram
+
+**Skipped Artifacts** (MVP — too heavyweight):
+- Formal SAD (System Architecture Document) — too large for current scope; ADRs sufficient
+- Test strategy document — inline test plan in README is sufficient
+- Governance templates (RACI, CCB minutes) — team too small for formal governance
+- Deployment runbook — basic deployment section in README is sufficient for MVP
+
+**Tailoring Notes**:
+- PRs required even for small team — maintains quality gate and change history
+- ADRs (Architecture Decision Records) recommended for 3+ key decisions: tech stack, auth approach, puzzle rendering library
+- Revisit process rigor at 3+ developers or Production profile upgrade
+
+---
+
+## Improvement Roadmap
+
+### Phase 1 (Immediate — Sprint 0–1)
+
+Critical setup for MVP:
+1. Initialize Python project structure (`pyproject.toml`, `requirements.txt`, virtual env)
+2. Initialize Next.js project (`package.json`, TypeScript config, `eslint` config)
+3. Configure GitHub Actions CI: lint → test → build
+4. Set up Docker Compose for local development (FastAPI + PostgreSQL + optional Redis)
+5. Design and implement database schema (users, puzzles, user_progress)
+6. Prototype Lichess data import script (download, decompress `.zst`, parse CSV, bulk insert)
+7. Wire up `SENTRY_DSN` and structured logging
+
+### Phase 2 (Short-term — Weeks 3–8)
+
+Core feature delivery:
+1. FastAPI: Auth endpoints (register, login, refresh, logout)
+2. FastAPI: Puzzle endpoints (random puzzle fetch, submit result)
+3. FastAPI: Progress endpoints (save result, retrieve user history)
+4. Next.js: Chessboard component (using `react-chessboard` + `chess.js`)
+5. Next.js: Guest puzzle flow (fetch random puzzle, render, validate solution)
+6. Next.js: Auth flow (register/login UI, JWT storage, protected routes)
+7. Next.js: Progress dashboard (authenticated user's solve history)
+8. Achieve 50% test coverage gate; 80% on auth + puzzle pipeline
+9. Deploy to staging environment (Docker + managed cloud)
+
+### Phase 3 (Long-term — Months 3–6)
+
+Scale and expand if v1 succeeds:
+1. Upgrade to Production profile when >500 registered users
+2. Add Redis caching for puzzle batch pre-generation
+3. GDPR controls: account deletion API, privacy policy, consent tracking
+4. Flutter mobile app (v2) — reuse FastAPI backend without changes
+5. Puzzle filtering (by theme, rating range)
+6. APM monitoring (Datadog or New Relic)
+7. PostgreSQL performance tuning (indexing, connection pooling with pgBouncer)
+
+---
+
+## Overrides and Customizations
+
+**Security Override**: Baseline is standard for MVP, but add **GDPR account deletion** before any EU marketing campaign — this is a legal requirement, not optional.
+
+**Testing Override**: Standard MVP profile allows 30% coverage, but this project's data pipeline and auth system carry real risk — raising target to 50% overall, 80% for critical paths.
+
+**Process Override**: Skipping formal SAD and governance templates — team is small (1–3 devs), documentation overhead not justified. Will revisit when team grows or compliance is required.
+
+**Rationale for Overrides**: The combination of user authentication (PII risk), a non-trivial data pipeline (3.5M record import), and chess move validation (domain complexity) justifies slightly higher quality standards than a typical MVP.
+
+---
+
+## Key Decisions
+
+**Decision #1: Profile Selection**
+- **Chosen**: MVP
+- **Alternative Considered**: Production (for compliance controls)
+- **Rationale**: No compliance requirements yet; no SLA contracts; proving viability first. GDPR controls will be added pre-EU-launch.
+- **Revisit Trigger**: 500+ registered users, GDPR marketing, or partner SLAs
+
+**Decision #2: Security Posture**
+- **Chosen**: Baseline (JWT + bcrypt + TLS + secrets management)
+- **Alternative Considered**: Strong (threat model + SAST/DAST + audit logs)
+- **Rationale**: No payment/health data; no regulatory requirement; Baseline is proportionate. Strong controls add 2–4 weeks overhead not justified for MVP.
+- **Revisit Trigger**: >5k users, payment features, or compliance certification required
+
+**Decision #3: Test Coverage Target**
+- **Chosen**: 50% overall, 80% for critical paths
+- **Alternative Considered**: 30% (standard MVP) or 70% (production-grade)
+- **Rationale**: Auth + data pipeline are high-risk; raising floor above standard MVP default. Full 70% target would slow initial delivery.
+- **Revisit Trigger**: Upgrade to Production profile; add E2E testing with Playwright
+
+---
+
+## Next Steps
+
+1. Review profile selection — confirm MVP is appropriate given planned launch timeline
+2. Confirm security posture — ensure GDPR deletion endpoint is in v1 if EU launch planned
+3. Validate coverage targets with team capacity (50% overall is achievable in 8–12 weeks)
+4. Start Inception flow: `/flow-concept-to-inception .`
+5. Revisit this profile at first major milestone (500 users or v2 Flutter launch)
