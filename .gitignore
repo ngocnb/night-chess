@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Node.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Docker / env
+.env
+*.env.local
+*.env.*.local
+
+# Lichess data (large binary files — don't commit)
+*.zst
+*.csv
+backend/scripts/*.csv
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
