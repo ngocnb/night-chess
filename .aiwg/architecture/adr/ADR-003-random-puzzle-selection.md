@@ -1,6 +1,6 @@
 # ADR-003: Pre-cached Random Puzzle Batches over ORDER BY RANDOM()
 
-**Status**: Proposed (validate in Sprint 0 prototype)
+**Status**: Accepted
 **Date**: 2026-02-27
 **Deciders**: Developer (solo)
 
@@ -177,14 +177,40 @@ Before committing to this approach, run the following benchmarks on the full 3.5
 -- Benchmark 1: Naive ORDER BY RANDOM()
 EXPLAIN ANALYZE SELECT * FROM puzzles ORDER BY RANDOM() LIMIT 1;
 
+Limit  (cost=259922.55..259922.55 rows=1 width=95) (actual time=2599.359..2599.365 rows=1 loops=1)
+  ->  Sort  (cost=259922.55..274300.48 rows=5751174 width=95) (actual time=2584.888..2584.891 rows=1 loops=1)
+        Sort Key: (random())
+        Sort Method: top-N heapsort  Memory: 25kB
+        ->  Seq Scan on puzzles  (cost=0.00..231166.67 rows=5751174 width=95) (actual time=0.067..1337.433 rows=5751400 loops=1)
+Planning Time: 1.658 ms
+JIT:
+  Functions: 3
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 0.449 ms, Inlining 0.000 ms, Optimization 3.778 ms, Emission 10.696 ms, Total 14.922 ms
+Execution Time: 2630.307 ms
+
 -- Benchmark 2: TABLESAMPLE SYSTEM
 EXPLAIN ANALYZE SELECT * FROM puzzles TABLESAMPLE SYSTEM(0.01) LIMIT 1;
+Limit  (cost=0.00..0.12 rows=1 width=224) (actual time=0.080..0.081 rows=1 loops=1)
+  ->  Sample Scan on puzzles  (cost=0.00..69.75 rows=575 width=224) (actual time=0.078..0.078 rows=1 loops=1)
+        Sampling: system ('0.01'::real)
+Planning Time: 1.797 ms
+Execution Time: 0.167 ms
 
 -- Benchmark 3: OFFSET-based
 EXPLAIN ANALYZE SELECT * FROM puzzles OFFSET 1750000 LIMIT 1;
+Limit  (cost=65965.71..65965.75 rows=1 width=224) (actual time=356.735..356.737 rows=1 loops=1)
+  ->  Seq Scan on puzzles  (cost=0.00..216788.74 rows=5751174 width=224) (actual time=0.069..295.391 rows=1750001 loops=1)
+Planning Time: 1.457 ms
+Execution Time: 356.819 ms
 
 -- Benchmark 4: Pre-cached ID lookup (simulates Phase 2)
 EXPLAIN ANALYZE SELECT * FROM puzzles WHERE id = '00sHx';
+Index Scan using puzzles_pkey on puzzles  (cost=0.43..8.45 rows=1 width=224) (actual time=0.150..0.152 rows=1 loops=1)
+  Index Cond: ((id)::text = '00sHx'::text)
+Planning Time: 2.069 ms
+Execution Time: 0.208 ms
+
 ```
 
 **Decision criteria**:
@@ -201,3 +227,4 @@ EXPLAIN ANALYZE SELECT * FROM puzzles WHERE id = '00sHx';
 | Version | Date       | Change                                  |
 |---------|------------|-----------------------------------------|
 | 1.0     | 2026-02-27 | Initial proposal -- pending Sprint 0 validation |
+| 1.1     | 2026-03-02 | Accepted -- Sprint 0 benchmarks validated. TABLESAMPLE SYSTEM(0.01): 0.167ms. ORDER BY RANDOM(): 2630ms. OFFSET fallback: 357ms. Phase 1 confirmed. |

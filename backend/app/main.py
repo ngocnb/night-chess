@@ -41,11 +41,9 @@ def create_app() -> FastAPI:
     async def health():
         return {"status": "ok"}
 
-    # Routers will be added in Sprint 1
-    # from app.api.v1 import auth, puzzles, users
-    # app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-    # app.include_router(puzzles.router, prefix="/api/v1/puzzles", tags=["puzzles"])
-    # app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+    from app.api.v1 import router as api_v1_router
+
+    app.include_router(api_v1_router, prefix="/api/v1")
 
     return app
 

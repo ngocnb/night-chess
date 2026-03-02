@@ -278,6 +278,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Download the .zst file from this URL before importing.",
     )
     parser.add_argument(
+        "--save-to",
+        metavar="PATH",
+        default=None,
+        help=(
+            "Where to save the downloaded file (default: data/lichess_db_puzzle.csv.zst"
+            " next to this script). Skips download if the file already exists."
+        ),
+    )
+    parser.add_argument(
         "--database-url",
         metavar="URL",
         default=None,
@@ -516,15 +525,18 @@ def main() -> None:
     # Resolve source file
     zst_path: Optional[str] = args.file
     if args.url:
-        import tempfile
-        tmp = tempfile.NamedTemporaryFile(suffix=".zst", delete=False)
-        tmp.close()
-        zst_path = tmp.name
-        try:
-            download_file(args.url, zst_path)
-        except Exception as exc:
-            log.error("Download failed", url=args.url, error=str(exc))
-            sys.exit(1)
+        default_save = os.path.join(os.path.dirname(__file__), "data", "lichess_db_puzzle.csv.zst")
+        save_to = os.path.abspath(args.save_to or default_save)
+        os.makedirs(os.path.dirname(save_to), exist_ok=True)
+        if os.path.exists(save_to):
+            log.info("Local file found, skipping download", path=save_to)
+        else:
+            try:
+                download_file(args.url, save_to)
+            except Exception as exc:
+                log.error("Download failed", url=args.url, error=str(exc))
+                sys.exit(1)
+        zst_path = save_to
 
     if not zst_path:
         print("ERROR: Provide --file or --url.", file=sys.stderr)
