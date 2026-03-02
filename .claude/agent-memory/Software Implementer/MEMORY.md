@@ -30,8 +30,17 @@
 - Use `zstandard` for zst streaming: `ZstdDecompressor().stream_reader(fileobj)`
 
 ## Bash Restrictions
-- `pip install` and `python -m pytest` require explicit user approval per session
+- `pip install`, `yarn install`, `yarn add`, and test runner commands require explicit user approval per session
 - Always explain what commands you need before seeking approval
+
+## Frontend Testing (Jest + RTL)
+- Jest config key is `setupFilesAfterEnv` (NOT `setupFilesAfterFramework`!)
+- Use `next/jest` via `nextJest({ dir: './' })` for Next.js 14 Jest config
+- Test stack: `jest`, `jest-environment-jsdom`, `@testing-library/react`, `@testing-library/jest-dom`
+- Frontend uses `yarn` (has `yarn.lock`) — use `yarn install` not `npm install`
+- Mock `react-chessboard` in tests to avoid canvas/DnD — capture `onPieceDrop` prop
+- `chess.js` v1.x `move()` throws (not returns null) on illegal moves — use try/catch
+- Use `useRef` for mutable Chess instance + `useState` for FEN (drives rendering)
 
 ## Frontend Lint
 - `next lint` requires `.eslintrc.json` — always create it with `{"extends": "next/core-web-vitals"}`

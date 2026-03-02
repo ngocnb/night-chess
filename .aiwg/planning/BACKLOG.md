@@ -108,5 +108,6 @@ When a new idea comes up mid-sprint, write it here — do not open a branch for 
 
 ---
 
-*Last updated: 2026-02-27*
+*Last updated: 2026-03-02*
 *Owner: Developer*
+*Archived items: see BACKLOG-ARCHIVED.md*

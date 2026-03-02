@@ -30,7 +30,7 @@ package-lock.json
 # Lichess data (large binary files — don't commit)
 *.zst
 *.csv
-backend/scripts/*.csv
+backend/scripts/data/
 
 # IDE
 .idea/
