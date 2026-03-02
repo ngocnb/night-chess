@@ -5,12 +5,12 @@
  * - Renders the chessboard without crashing
  * - Board orientation: FEN side 'w' → player is Black → orientation "black"
  * - Board orientation: FEN side 'b' → player is White → orientation "white"
- * - No status message shown initially (status = 'playing')
- * - onDrop: correct move shows 'Correct!' feedback
- * - onDrop: incorrect move shows 'Incorrect' feedback and calls onIncorrect
- * - onDrop: 'Incorrect' status clears after 1 second
+ * - onStatusChange is NOT called initially (status starts as 'playing')
+ * - onDrop: correct move calls onStatusChange('correct')
+ * - onDrop: incorrect move calls onStatusChange('incorrect') and then onIncorrect
+ * - onDrop: 'incorrect' status clears after 1 second (calls onStatusChange('playing'))
  * - onDrop: illegal move returns false (piece snaps back)
- * - Puzzle complete when last move played — calls onComplete, shows 'Puzzle complete!'
+ * - Puzzle complete when last move played — calls onComplete, onStatusChange('complete')
  * - Puzzle complete triggered by opponent's last reply (even-length player sequences)
  * - Board is non-draggable when status is 'complete'
  * - Opponent reply fires after 500ms delay
@@ -20,6 +20,7 @@
 import React from 'react'
 import { render, screen, act } from '@testing-library/react'
 import type { Puzzle } from '@/lib/api'
+import type { PuzzleStatus } from '@/components/PuzzleBoard'
 
 // Capture the onPieceDrop prop from each render so tests can simulate drops.
 let capturedOnPieceDrop: ((src: string, tgt: string, piece: string) => boolean) | null = null
@@ -106,11 +107,18 @@ describe('PuzzleBoard', () => {
     expect(screen.getByTestId('chessboard').dataset.orientation).toBe('white')
   })
 
-  it('does not show any status message initially', () => {
-    render(<PuzzleBoard puzzle={WHITE_OPPONENT_PUZZLE} onComplete={jest.fn()} />)
-    expect(screen.queryByText('Correct!')).not.toBeInTheDocument()
-    expect(screen.queryByText(/Incorrect/)).not.toBeInTheDocument()
-    expect(screen.queryByText('Puzzle complete!')).not.toBeInTheDocument()
+  it('calls onStatusChange("playing") on initial render via reset effect', () => {
+    const onStatusChange = jest.fn()
+    render(
+      <PuzzleBoard
+        puzzle={WHITE_OPPONENT_PUZZLE}
+        onComplete={jest.fn()}
+        onStatusChange={onStatusChange}
+      />,
+    )
+    // The puzzle.id reset effect fires on mount and calls onStatusChange('playing')
+    expect(onStatusChange).toHaveBeenCalledWith('playing')
+    expect(onStatusChange).toHaveBeenCalledTimes(1)
   })
 
   it('board is draggable initially', () => {
@@ -131,13 +139,15 @@ describe('PuzzleBoard', () => {
     expect(result).toBe(false)
   })
 
-  it('shows "Incorrect — try again" and calls onIncorrect on a wrong (but legal) move', () => {
+  it('calls onStatusChange("incorrect") and onIncorrect on a wrong (but legal) move', () => {
     const onIncorrect = jest.fn()
+    const onStatusChange = jest.fn()
     render(
       <PuzzleBoard
         puzzle={WHITE_OPPONENT_PUZZLE}
         onComplete={jest.fn()}
         onIncorrect={onIncorrect}
+        onStatusChange={onStatusChange}
       />,
     )
 
@@ -148,22 +158,30 @@ describe('PuzzleBoard', () => {
     })
 
     expect(result).toBe(false)
-    expect(screen.getByText('Incorrect — try again')).toBeInTheDocument()
+    expect(onStatusChange).toHaveBeenCalledWith('incorrect')
     expect(onIncorrect).toHaveBeenCalledTimes(1)
   })
 
-  it('clears "Incorrect" status after 1 second', () => {
-    render(<PuzzleBoard puzzle={WHITE_OPPONENT_PUZZLE} onComplete={jest.fn()} />)
+  it('clears "incorrect" status after 1 second (calls onStatusChange("playing"))', () => {
+    const onStatusChange = jest.fn()
+    render(
+      <PuzzleBoard
+        puzzle={WHITE_OPPONENT_PUZZLE}
+        onComplete={jest.fn()}
+        onStatusChange={onStatusChange}
+      />,
+    )
 
     act(() => {
       capturedOnPieceDrop!('f8', 'e7', 'bB')
     })
-    expect(screen.getByText('Incorrect — try again')).toBeInTheDocument()
+    expect(onStatusChange).toHaveBeenCalledWith('incorrect')
 
+    onStatusChange.mockClear()
     act(() => {
       jest.advanceTimersByTime(1000)
     })
-    expect(screen.queryByText('Incorrect — try again')).not.toBeInTheDocument()
+    expect(onStatusChange).toHaveBeenCalledWith('playing')
   })
 
   it('onIncorrect is optional — does not throw when not provided', () => {
@@ -176,8 +194,15 @@ describe('PuzzleBoard', () => {
     }).not.toThrow()
   })
 
-  it('shows "Correct!" on the correct player move', () => {
-    render(<PuzzleBoard puzzle={WHITE_OPPONENT_PUZZLE} onComplete={jest.fn()} />)
+  it('calls onStatusChange("correct") on the correct player move', () => {
+    const onStatusChange = jest.fn()
+    render(
+      <PuzzleBoard
+        puzzle={WHITE_OPPONENT_PUZZLE}
+        onComplete={jest.fn()}
+        onStatusChange={onStatusChange}
+      />,
+    )
 
     // After opponent plays f3g5, player must play d8e7
     let result!: boolean
@@ -186,12 +211,19 @@ describe('PuzzleBoard', () => {
     })
 
     expect(result).toBe(true)
-    expect(screen.getByText('Correct!')).toBeInTheDocument()
+    expect(onStatusChange).toHaveBeenCalledWith('correct')
   })
 
-  it('calls onComplete and shows "Puzzle complete!" on a 2-move puzzle (no opponent reply)', () => {
+  it('calls onComplete and onStatusChange("complete") on a 2-move puzzle (no opponent reply)', () => {
     const onComplete = jest.fn()
-    render(<PuzzleBoard puzzle={TWO_MOVE_PUZZLE} onComplete={onComplete} />)
+    const onStatusChange = jest.fn()
+    render(
+      <PuzzleBoard
+        puzzle={TWO_MOVE_PUZZLE}
+        onComplete={onComplete}
+        onStatusChange={onStatusChange}
+      />,
+    )
 
     // opponent already played e7e5; player must play d2d4
     act(() => {
@@ -199,7 +231,7 @@ describe('PuzzleBoard', () => {
     })
 
     expect(onComplete).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('Puzzle complete!')).toBeInTheDocument()
+    expect(onStatusChange).toHaveBeenCalledWith('complete')
   })
 
   it('board becomes non-draggable after puzzle completion (no-reply puzzle)', () => {
@@ -214,7 +246,14 @@ describe('PuzzleBoard', () => {
 
   it('calls onComplete after opponent reply when last move was opponent-replied', () => {
     const onComplete = jest.fn()
-    render(<PuzzleBoard puzzle={WHITE_OPPONENT_PUZZLE} onComplete={onComplete} />)
+    const onStatusChange = jest.fn()
+    render(
+      <PuzzleBoard
+        puzzle={WHITE_OPPONENT_PUZZLE}
+        onComplete={onComplete}
+        onStatusChange={onStatusChange}
+      />,
+    )
 
     // Player plays correct move d8e7 (solutionIndex=1)
     act(() => {
@@ -222,47 +261,63 @@ describe('PuzzleBoard', () => {
     })
     // onComplete should NOT be called yet (opponent still needs to reply)
     expect(onComplete).not.toHaveBeenCalled()
+    expect(onStatusChange).toHaveBeenCalledWith('correct')
 
     // After 500ms, opponent plays g5f7 and puzzle completes
+    onStatusChange.mockClear()
     act(() => {
       jest.advanceTimersByTime(500)
     })
     expect(onComplete).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('Puzzle complete!')).toBeInTheDocument()
+    expect(onStatusChange).toHaveBeenCalledWith('complete')
   })
 
-  it('opponent reply fires after 500ms and status transitions to complete (or playing)', () => {
-    render(<PuzzleBoard puzzle={WHITE_OPPONENT_PUZZLE} onComplete={jest.fn()} />)
+  it('opponent reply fires after 500ms and status transitions to complete', () => {
+    const onStatusChange = jest.fn()
+    render(
+      <PuzzleBoard
+        puzzle={WHITE_OPPONENT_PUZZLE}
+        onComplete={jest.fn()}
+        onStatusChange={onStatusChange}
+      />,
+    )
 
     act(() => {
       capturedOnPieceDrop!('d8', 'e7', 'bQ')
     })
-    expect(screen.getByText('Correct!')).toBeInTheDocument()
+    expect(onStatusChange).toHaveBeenCalledWith('correct')
 
+    onStatusChange.mockClear()
     act(() => {
       jest.advanceTimersByTime(499)
     })
-    // Still showing Correct before timeout fires
-    expect(screen.getByText('Correct!')).toBeInTheDocument()
+    // Still in 'correct' — opponent hasn't replied yet
+    expect(onStatusChange).not.toHaveBeenCalled()
 
     act(() => {
       jest.advanceTimersByTime(1)
     })
-    // After timeout, "Correct!" is gone (status is now 'complete')
-    expect(screen.queryByText('Correct!')).not.toBeInTheDocument()
+    // After timeout fires, status becomes 'complete'
+    expect(onStatusChange).toHaveBeenCalledWith('complete')
   })
 
   it('resets state when puzzle.id changes', () => {
     const onComplete = jest.fn()
+    const onStatusChange = jest.fn()
     const { rerender } = render(
-      <PuzzleBoard puzzle={TWO_MOVE_PUZZLE} onComplete={onComplete} />,
+      <PuzzleBoard
+        puzzle={TWO_MOVE_PUZZLE}
+        onComplete={onComplete}
+        onStatusChange={onStatusChange}
+      />,
     )
 
     // Complete the first puzzle
     act(() => {
       capturedOnPieceDrop!('d2', 'd4', 'wP')
     })
-    expect(screen.getByText('Puzzle complete!')).toBeInTheDocument()
+    expect(onStatusChange).toHaveBeenCalledWith('complete')
+    expect(screen.getByTestId('chessboard').dataset.draggable).toBe('false')
 
     // Switch to a new puzzle
     const newPuzzle: Puzzle = {
@@ -272,11 +327,13 @@ describe('PuzzleBoard', () => {
       rating: 900,
       themes: null,
     }
-    rerender(<PuzzleBoard puzzle={newPuzzle} onComplete={onComplete} />)
+    onStatusChange.mockClear()
+    rerender(
+      <PuzzleBoard puzzle={newPuzzle} onComplete={onComplete} onStatusChange={onStatusChange} />,
+    )
 
-    // Status should reset to playing
-    expect(screen.queryByText('Puzzle complete!')).not.toBeInTheDocument()
-    expect(screen.queryByText('Correct!')).not.toBeInTheDocument()
+    // Board should be draggable again; reset effect fires onStatusChange('playing')
     expect(screen.getByTestId('chessboard').dataset.draggable).toBe('true')
+    expect(onStatusChange).toHaveBeenCalledWith('playing')
   })
 })

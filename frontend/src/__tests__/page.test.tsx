@@ -2,13 +2,16 @@
  * Tests for frontend/src/app/page.tsx (Home)
  *
  * Tests cover:
- * - Shows loading state on initial render
- * - Renders puzzle rating and themes after successful fetch
+ * - Shows loading skeleton (no puzzle board) on initial render
+ * - Renders puzzle rating value after successful fetch
+ * - Renders each theme as a separate tag after successful fetch
  * - Shows error message when API fails
- * - "Next Puzzle" button triggers a new fetch
+ * - "Next puzzle" button triggers a new fetch
  * - Button is disabled while loading and enabled after
  * - PuzzleBoard is rendered when puzzle loaded
  * - PuzzleBoard is not rendered on error
+ * - Status label starts as "{Color} to play"
+ * - Renders correctly when puzzle has null themes
  */
 
 import React from 'react'
@@ -34,6 +37,7 @@ import { fetchRandomPuzzle } from '@/lib/api'
 
 const mockFetch = fetchRandomPuzzle as jest.Mock
 
+// FEN side-to-move 'w' means opponent is White → player is Black
 const MOCK_PUZZLE: Puzzle = {
   id: 'test-puzzle',
   fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -47,23 +51,32 @@ describe('Home page', () => {
     mockFetch.mockReset()
   })
 
-  it('shows "Loading puzzle..." on initial render', async () => {
+  it('does not render puzzle board during initial loading', () => {
     mockFetch.mockReturnValue(new Promise(() => {})) // never resolves
 
     render(<Home />)
-    expect(screen.getByText('Loading puzzle...')).toBeInTheDocument()
+    expect(screen.queryByTestId('puzzle-board')).not.toBeInTheDocument()
   })
 
-  it('renders puzzle rating and themes after successful fetch', async () => {
+  it('renders puzzle rating value after successful fetch', async () => {
     mockFetch.mockResolvedValue(MOCK_PUZZLE)
 
     render(<Home />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Rating: 1500/)).toBeInTheDocument()
+      expect(screen.getByText('1500')).toBeInTheDocument()
     })
-    expect(screen.getByText(/opening, tactical/)).toBeInTheDocument()
-    expect(screen.queryByText('Loading puzzle...')).not.toBeInTheDocument()
+  })
+
+  it('renders each theme as a separate tag', async () => {
+    mockFetch.mockResolvedValue(MOCK_PUZZLE)
+
+    render(<Home />)
+
+    await waitFor(() => {
+      expect(screen.getByText('opening')).toBeInTheDocument()
+      expect(screen.getByText('tactical')).toBeInTheDocument()
+    })
   })
 
   it('renders PuzzleBoard when puzzle loaded', async () => {
@@ -83,7 +96,9 @@ describe('Home page', () => {
     render(<Home />)
 
     await waitFor(() => {
-      expect(screen.getByText('Could not load puzzle — try again')).toBeInTheDocument()
+      // Error rendered in both the board area and sidebar
+      const msgs = screen.getAllByText('Could not load puzzle — try again')
+      expect(msgs.length).toBeGreaterThan(0)
     })
   })
 
@@ -97,36 +112,36 @@ describe('Home page', () => {
     })
   })
 
-  it('"Next Puzzle" button is disabled while loading', () => {
+  it('"Next puzzle" button shows "Loading…" while loading', () => {
     mockFetch.mockReturnValue(new Promise(() => {}))
 
     render(<Home />)
 
-    expect(screen.getByRole('button', { name: /Next Puzzle/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /loading/i })).toBeDisabled()
   })
 
-  it('"Next Puzzle" button is enabled after load completes', async () => {
+  it('"Next puzzle" button is enabled after load completes', async () => {
     mockFetch.mockResolvedValue(MOCK_PUZZLE)
 
     render(<Home />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Next Puzzle/i })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: /next puzzle/i })).not.toBeDisabled()
     })
   })
 
-  it('clicking "Next Puzzle" triggers another fetchRandomPuzzle call', async () => {
+  it('clicking "Next puzzle" triggers another fetchRandomPuzzle call', async () => {
     const SECOND_PUZZLE: Puzzle = { ...MOCK_PUZZLE, id: 'second', rating: 1600 }
     mockFetch.mockResolvedValueOnce(MOCK_PUZZLE).mockResolvedValueOnce(SECOND_PUZZLE)
 
     render(<Home />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Next Puzzle/i })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: /next puzzle/i })).not.toBeDisabled()
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Next Puzzle/i }))
+      fireEvent.click(screen.getByRole('button', { name: /next puzzle/i }))
     })
 
     await waitFor(() => {
@@ -134,22 +149,26 @@ describe('Home page', () => {
     })
   })
 
-  it('renders title "Night Chess"', () => {
-    mockFetch.mockReturnValue(new Promise(() => {}))
+  it('shows "Black to play" when FEN side-to-move is "w" (opponent is White, player is Black)', async () => {
+    mockFetch.mockResolvedValue(MOCK_PUZZLE) // FEN has 'w' side-to-move
 
     render(<Home />)
 
-    expect(screen.getByRole('heading', { name: 'Night Chess' })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Black to play')).toBeInTheDocument()
+    })
   })
 
-  it('renders rating without themes separator when themes is null', async () => {
+  it('renders correctly when puzzle has null themes (no theme tags shown)', async () => {
     const puzzleNoThemes: Puzzle = { ...MOCK_PUZZLE, themes: null }
     mockFetch.mockResolvedValue(puzzleNoThemes)
 
     render(<Home />)
 
     await waitFor(() => {
-      expect(screen.getByText('Rating: 1500')).toBeInTheDocument()
+      expect(screen.getByText('1500')).toBeInTheDocument()
     })
+    // No theme tags rendered
+    expect(screen.queryByText('opening')).not.toBeInTheDocument()
   })
 })
