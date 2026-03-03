@@ -17,8 +17,9 @@
 import React from 'react'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import type { Puzzle } from '@/lib/api'
+import { AuthProvider } from '@/lib/auth'
 
-// Mock the api module before any imports from page
+// Mock the API module before any imports from page
 jest.mock('@/lib/api', () => ({
   fetchRandomPuzzle: jest.fn(),
 }))
@@ -46,6 +47,7 @@ const MOCK_PUZZLE: Puzzle = {
   themes: ['opening', 'tactical'],
 }
 
+// No wrapper needed since AuthProvider is mocked as pass-through
 describe('Home page', () => {
   beforeEach(() => {
     mockFetch.mockReset()

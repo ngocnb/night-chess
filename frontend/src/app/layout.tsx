@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/lib/auth'
+import Header from '@/components/Header'
 
 export const metadata: Metadata = {
   title: 'Night Chess',
@@ -10,10 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <header className="site-header">
-          <h1>Night Chess</h1>
-        </header>
-        {children}
+        <AuthProvider>
+          <Header />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )

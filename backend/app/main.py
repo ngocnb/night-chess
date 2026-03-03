@@ -2,8 +2,9 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 
@@ -33,9 +34,21 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "DELETE"],
+        allow_methods=["*"],
         allow_headers=["Authorization", "Content-Type"],
     )
+
+    @app.middleware("http")
+    async def catch_unhandled_exceptions(request: Request, call_next):
+        # This middleware sits INSIDE CORSMiddleware in the stack, so any
+        # JSONResponse returned here will have CORS headers added by the time
+        # it reaches the client — unlike @app.exception_handler(Exception),
+        # which registers with ServerErrorMiddleware (outside CORS).
+        try:
+            return await call_next(request)
+        except Exception as exc:
+            logger.error("unhandled_exception", error=str(exc), path=str(request.url))
+            return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
     @app.get("/health")
     async def health():
