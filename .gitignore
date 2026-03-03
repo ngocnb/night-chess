@@ -30,6 +30,9 @@ package-lock.json
 # Runtime logs
 backend/logs/
 
+# Test credentials (copy from .env.test.example)
+backend/.env.test
+
 # Lichess data (large binary files — don't commit)
 *.zst
 *.csv

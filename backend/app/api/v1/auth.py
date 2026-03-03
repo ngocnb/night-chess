@@ -43,7 +43,7 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
         value=raw_refresh_token,
         httponly=True,
         samesite="lax",
-        path="/api/v1/auth/refresh",
+        path="/api/v1/auth",
         max_age=604800,  # 7 days
     )
     return response
@@ -74,7 +74,7 @@ async def refresh(request: Request, db: AsyncSession = Depends(get_db)):
         value=new_raw_token,
         httponly=True,
         samesite="lax",
-        path="/api/v1/auth/refresh",
+        path="/api/v1/auth",
         max_age=604800,  # 7 days
     )
     return response
@@ -96,6 +96,6 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
     response = Response(status_code=204)
     response.delete_cookie(
         key="refresh_token",
-        path="/api/v1/auth/refresh",
+        path="/api/v1/auth",
     )
     return response

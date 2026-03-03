@@ -135,7 +135,7 @@ async def test_login_success(mock_user, mock_tokens):
     assert set_cookie is not None
     assert "refresh_token=" in set_cookie
     assert "HttpOnly" in set_cookie
-    assert "Path=/api/v1/auth/refresh" in set_cookie
+    assert "Path=/api/v1/auth" in set_cookie
     assert "Max-Age=604800" in set_cookie
 
 
