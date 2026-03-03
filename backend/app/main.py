@@ -1,4 +1,7 @@
+import logging
+import logging.handlers
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import sentry_sdk
 import structlog
@@ -8,6 +11,47 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 
+
+def _configure_logging() -> None:
+    """Route structlog through stdlib; errors go to error.log, all logs to app.log."""
+    log_dir = Path(__file__).parent.parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+
+    all_handler = logging.handlers.RotatingFileHandler(
+        log_dir / "app.log",
+        maxBytes=5 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
+    )
+
+    error_handler = logging.handlers.RotatingFileHandler(
+        log_dir / "error.log",
+        maxBytes=5 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    error_handler.setLevel(logging.ERROR)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        handlers=[logging.StreamHandler(), all_handler, error_handler],
+    )
+
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.stdlib.add_log_level,
+            structlog.processors.format_exc_info,
+            structlog.processors.KeyValueRenderer(key_order=["timestamp", "level", "event"]),
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+
+
+_configure_logging()
 logger = structlog.get_logger()
 
 
@@ -30,6 +74,25 @@ def create_app() -> FastAPI:
         docs_url="/api/docs" if settings.environment != "production" else None,
     )
 
+    # Register the error-catching middleware FIRST so that when CORSMiddleware
+    # is added next (Starlette prepends each new middleware), CORS ends up
+    # outermost.  Stack after both registrations:
+    #   CORSMiddleware (outermost) → catch_unhandled_exceptions → routes
+    # Any JSONResponse returned by catch_unhandled_exceptions flows back
+    # through CORSMiddleware, which then injects the CORS headers.
+    @app.middleware("http")
+    async def catch_unhandled_exceptions(request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as exc:
+            logger.error(
+                "unhandled_exception",
+                error=str(exc),
+                path=str(request.url),
+                exc_info=True,
+            )
+            return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -37,18 +100,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["Authorization", "Content-Type"],
     )
-
-    @app.middleware("http")
-    async def catch_unhandled_exceptions(request: Request, call_next):
-        # This middleware sits INSIDE CORSMiddleware in the stack, so any
-        # JSONResponse returned here will have CORS headers added by the time
-        # it reaches the client — unlike @app.exception_handler(Exception),
-        # which registers with ServerErrorMiddleware (outside CORS).
-        try:
-            return await call_next(request)
-        except Exception as exc:
-            logger.error("unhandled_exception", error=str(exc), path=str(request.url))
-            return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
     @app.get("/health")
     async def health():

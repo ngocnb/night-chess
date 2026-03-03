@@ -6,11 +6,12 @@ import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import type { Puzzle } from '@/lib/api'
 
-export type PuzzleStatus = 'playing' | 'correct' | 'incorrect' | 'complete'
+export type PuzzleStatus = 'playing' | 'correct' | 'failed' | 'complete'
 
 interface PuzzleBoardProps {
   puzzle: Puzzle
   onComplete: () => void
+  onFailed?: () => void
   onIncorrect?: () => void
   onStatusChange?: (status: PuzzleStatus) => void
 }
@@ -53,6 +54,7 @@ function isPawnPromotion(game: Chess, from: Square, to: Square): boolean {
 export default function PuzzleBoard({
   puzzle,
   onComplete,
+  onFailed,
   onIncorrect,
   onStatusChange,
 }: PuzzleBoardProps) {
@@ -134,10 +136,11 @@ export default function PuzzleBoard({
       if (playedUci !== expectedUci) {
         game.undo()
         setFen(game.fen())
-        updateStatus('incorrect')
+        updateStatus('failed')
         onIncorrect?.()
+        onFailed?.()
         clearSelection()
-        setTimeout(() => updateStatus('playing'), 1000)
+        // Board is now locked - no retry, no reset
         return false
       }
 
@@ -178,7 +181,7 @@ export default function PuzzleBoard({
 
   const onDrop = useCallback(
     (sourceSquare: Square, targetSquare: Square, _piece: string): boolean => {
-      if (status === 'complete') return false
+      if (status === 'complete' || status === 'failed') return false
       clearSelection()
 
       if (isPawnPromotion(gameRef.current, sourceSquare, targetSquare)) {
@@ -197,7 +200,7 @@ export default function PuzzleBoard({
 
   const onSquareClick = useCallback(
     (square: Square) => {
-      if (status === 'complete') return
+      if (status === 'complete' || status === 'failed') return
       if (showPromotion) return
 
       const game = gameRef.current
@@ -289,7 +292,7 @@ export default function PuzzleBoard({
         boardOrientation={boardOrientation}
         onPieceDrop={onDrop}
         onSquareClick={onSquareClick}
-        arePiecesDraggable={status !== 'complete'}
+        arePiecesDraggable={status !== 'complete' && status !== 'failed'}
         customSquareStyles={customSquareStyles}
         customDarkSquareStyle={{ backgroundColor: '#b58863' }}
         customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}

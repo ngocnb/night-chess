@@ -155,19 +155,91 @@
 
 ---
 
+## Sprint 2 — addendum (from 2026-03-03 feedback)
+
+These two items are small enough to close in Sprint 2 before the exit gate.
+
+### F8 — Puzzle result UX (1 wrong move = Fail)
+
+- [x] **F8.1** In `PuzzleBoard.tsx`: on first incorrect move, immediately set status to `'failed'` and lock the board (no retry). Remove "Incorrect — try again" flow.
+- [x] **F8.2** Update `getStatusLabel` in `page.tsx`: map `'failed'` → "Incorrect — failed". Remove `'incorrect'` label.
+- [x] **F8.3** Update `PuzzleStatus` type: replace `'incorrect'` with `'failed'` (or add `'failed'` alongside `'incorrect'` as distinct locked state).
+- [x] **F8.4** Update all tests that reference the old `'incorrect'` status or "try again" text.
+- [x] **F8.5** Call `submitPuzzle` to submit the puzzle result when it's failed or success.
+
+### F9 — Next Puzzle button lock
+
+- [x] **F9.1** In `page.tsx`: disable "Next puzzle →" button until `puzzleStatus === 'complete' || puzzleStatus === 'failed'`. Currently it's only disabled while `loading`.
+
+---
+
 ## Sprint 2 exit gate
 
 - [ ] Register → Login → Solve puzzle → progress row recorded (manual smoke test)
 - [ ] Access token expires → transparent refresh via cookie, no user action required (manual smoke test)
 - [ ] Logout clears token; next authenticated request returns 401 (manual smoke test)
 - [ ] Auth module backend test coverage ≥ 80% (`pytest --cov` output)
-- [x] All existing tests still pass (`pytest -x` + `yarn test`) — 70 backend + 31 frontend tests
+- [x] All existing tests still pass (`pytest -x` + `yarn test`) — 75 backend + 43 frontend tests
+- [x] Puzzle fails immediately on first wrong move (manual smoke test)
+- [x] Next Puzzle button is locked while puzzle is in progress (manual smoke test)
 
 ---
 
-## Sprint 3 — Dashboard + GDPR + Deploy
+## Sprint 3 — Rating System + UX Polish
 
-- [ ] Progress dashboard page at `/dashboard` (solve count, accuracy, recent history)
+*Goal: logged-in users have a meaningful rating that improves puzzle selection and visible move feedback.*
+
+### B11 — Rating system (backend)
+
+- [ ] **B11.1** Add `rating: int` column to `users` table (default 1500) — Alembic migration
+- [ ] **B11.2** Add `UserResponse` field `rating: int` and `GET /users/me` endpoint returning it
+- [ ] **B11.3** In `progress_service.py`: after inserting/updating progress row, apply Elo delta to `users.rating`:
+  - Formula: K=32; `expected = 1/(1+10^((puzzle_rating − user_rating)/400))`
+  - Success: `Δ = +round(K × (1 − expected))`
+  - Fail: `Δ = −round(K × expected)`
+  - Clamp rating to `[400, 3000]` to prevent runaway values
+- [ ] **B11.4** Return updated `user_rating` in `SubmitResponse` so frontend can display the change
+- [ ] **B11.5** Tests: `test_rating_increases_on_success`, `test_rating_decreases_on_fail`, `test_rating_clamped`
+
+### B12 — Rating-based puzzle selection (backend)
+
+- [ ] **B12.1** Add optional `user_rating: int | None` param to `get_random_puzzle` service
+- [ ] **B12.2** When `user_rating` is provided: filter `WHERE rating BETWEEN (user_rating−200) AND (user_rating+200)` after TABLESAMPLE; if result is empty, fall back to unconstrained TABLESAMPLE
+- [ ] **B12.3** Wire `GET /puzzles/random` to read `user_rating` from current user (via `get_optional_user`); guests get pure random
+- [ ] **B12.4** Tests: `test_random_puzzle_uses_rating_window`, `test_random_puzzle_falls_back_on_empty_sample`
+
+### F10 — King check highlight (frontend)
+
+- [ ] **F10.1** In `PuzzleBoard.tsx`: after every move, detect `game.inCheck()`. If true, find the king's square and add it to `customSquareStyles` with `{ background: 'radial-gradient(circle, #ff0000 0%, transparent 70%)' }`.
+- [ ] **F10.2** Clear the check highlight when the king is no longer in check.
+
+### F11 — Move result markers (frontend)
+
+- [ ] **F11.1** Track the last move's `to` square and whether it was correct or incorrect.
+- [ ] **F11.2** On correct move: overlay a green ✓ badge on the destination square using `customSquareStyles` (background image or pseudo-element via CSS class).
+- [ ] **F11.3** On incorrect move (first wrong = fail): overlay a red ✗ badge on the destination square before locking the board.
+- [ ] **F11.4** Clear markers when a new puzzle loads.
+
+### F12 — Rating display (frontend)
+
+- [ ] **F12.1** Show logged-in user's rating in the sidebar (fetched from `GET /users/me`).
+- [ ] **F12.2** After puzzle submit, animate the rating change (+Δ / −Δ) in the sidebar.
+
+### Sprint 3 exit gate
+
+- [ ] Logged-in user rating changes after each puzzle solve/fail
+- [ ] Next puzzle is within ±200 of user's rating (verify via puzzle rating tag in sidebar)
+- [ ] King in check shows red highlight
+- [ ] Correct move shows ✓, wrong move shows ✗
+- [ ] All existing tests still pass
+
+---
+
+## Sprint 4 — Dashboard + GDPR + Deploy
+
+*(was Sprint 3 — pushed back to accommodate rating system)*
+
+- [ ] Progress dashboard page at `/dashboard` (solve count, accuracy, rating graph, recent history)
 - [ ] `DELETE /api/v1/users/me` — GDPR account deletion, CASCADE all user data
 - [ ] Privacy policy page at `/privacy`
 - [ ] 100+ real Lichess puzzles manually tested across themes — launch blocker

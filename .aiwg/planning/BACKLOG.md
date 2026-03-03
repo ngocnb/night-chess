@@ -23,7 +23,7 @@ When a new idea comes up mid-sprint, write it here — do not open a branch for 
 | Idea | Notes |
 |------|-------|
 | Filter by theme | e.g. mateIn1, fork, pin, skewer — Lichess `themes` column is already imported |
-| Filter by rating range | Already in API design as optional query params; just needs frontend UI |
+| Filter by rating range | Already in API design as optional query params; just needs frontend UI — *auto-selection by user rating is Sprint 3 (B12)* |
 | Spaced repetition | Surface puzzles the user previously failed; requires tracking failure timestamps |
 | Streak tracking | Daily puzzle streak counter; needs a `last_active_date` field on users |
 | Puzzle hints | Reveal first move of solution after user requests it |
@@ -108,6 +108,6 @@ When a new idea comes up mid-sprint, write it here — do not open a branch for 
 
 ---
 
-*Last updated: 2026-03-02*
+*Last updated: 2026-03-03*
 *Owner: Developer*
 *Archived items: see BACKLOG-ARCHIVED.md*

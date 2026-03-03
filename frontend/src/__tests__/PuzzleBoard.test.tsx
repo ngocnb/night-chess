@@ -7,12 +7,11 @@
  * - Board orientation: FEN side 'b' → player is White → orientation "white"
  * - onStatusChange is NOT called initially (status starts as 'playing')
  * - onDrop: correct move calls onStatusChange('correct')
- * - onDrop: incorrect move calls onStatusChange('incorrect') and then onIncorrect
- * - onDrop: 'incorrect' status clears after 1 second (calls onStatusChange('playing'))
+ * - onDrop: incorrect move calls onStatusChange('failed') and onIncorrect (board locks)
  * - onDrop: illegal move returns false (piece snaps back)
  * - Puzzle complete when last move played — calls onComplete, onStatusChange('complete')
  * - Puzzle complete triggered by opponent's last reply (even-length player sequences)
- * - Board is non-draggable when status is 'complete'
+ * - Board is non-draggable when status is 'complete' or 'failed'
  * - Opponent reply fires after 500ms delay
  * - State resets when puzzle.id changes
  */
@@ -139,7 +138,7 @@ describe('PuzzleBoard', () => {
     expect(result).toBe(false)
   })
 
-  it('calls onStatusChange("incorrect") and onIncorrect on a wrong (but legal) move', () => {
+  it('calls onStatusChange("failed") and onIncorrect on a wrong (but legal) move', () => {
     const onIncorrect = jest.fn()
     const onStatusChange = jest.fn()
     render(
@@ -158,30 +157,18 @@ describe('PuzzleBoard', () => {
     })
 
     expect(result).toBe(false)
-    expect(onStatusChange).toHaveBeenCalledWith('incorrect')
+    expect(onStatusChange).toHaveBeenCalledWith('failed')
     expect(onIncorrect).toHaveBeenCalledTimes(1)
   })
 
-  it('clears "incorrect" status after 1 second (calls onStatusChange("playing"))', () => {
-    const onStatusChange = jest.fn()
-    render(
-      <PuzzleBoard
-        puzzle={WHITE_OPPONENT_PUZZLE}
-        onComplete={jest.fn()}
-        onStatusChange={onStatusChange}
-      />,
-    )
+  it('board becomes non-draggable after incorrect move (status=failed)', () => {
+    render(<PuzzleBoard puzzle={WHITE_OPPONENT_PUZZLE} onComplete={jest.fn()} />)
 
     act(() => {
       capturedOnPieceDrop!('f8', 'e7', 'bB')
     })
-    expect(onStatusChange).toHaveBeenCalledWith('incorrect')
 
-    onStatusChange.mockClear()
-    act(() => {
-      jest.advanceTimersByTime(1000)
-    })
-    expect(onStatusChange).toHaveBeenCalledWith('playing')
+    expect(screen.getByTestId('chessboard').dataset.draggable).toBe('false')
   })
 
   it('onIncorrect is optional — does not throw when not provided', () => {

@@ -17,19 +17,44 @@
 import React from 'react'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import type { Puzzle } from '@/lib/api'
-import { AuthProvider } from '@/lib/auth'
 
 // Mock the API module before any imports from page
 jest.mock('@/lib/api', () => ({
   fetchRandomPuzzle: jest.fn(),
+  submitPuzzle: jest.fn(),
 }))
+
+// Mock the auth module to provide a mock useAuth
+jest.mock('@/lib/auth', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useAuth: () => ({
+    user: null,
+    accessToken: null,
+    login: jest.fn(),
+    logout: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}))
+
+// Capture callbacks from PuzzleBoard
+let capturedOnComplete: (() => void) | undefined
+let capturedOnFailed: (() => void) | undefined
+let capturedOnStatusChange: ((status: string) => void) | undefined
 
 // Mock PuzzleBoard to avoid chess rendering complexity
 jest.mock('@/components/PuzzleBoard', () => ({
   __esModule: true,
-  default: ({ puzzle }: { puzzle: Puzzle }) => (
-    <div data-testid="puzzle-board" data-puzzle-id={puzzle.id} />
-  ),
+  default: ({ puzzle, onComplete, onFailed, onStatusChange }: {
+    puzzle: Puzzle
+    onComplete?: () => void
+    onFailed?: () => void
+    onStatusChange?: (status: string) => void
+  }) => {
+    capturedOnComplete = onComplete
+    capturedOnFailed = onFailed
+    capturedOnStatusChange = onStatusChange
+    return <div data-testid="puzzle-board" data-puzzle-id={puzzle.id} />
+  },
 }))
 
 // Import after mocks are set up
@@ -122,11 +147,62 @@ describe('Home page', () => {
     expect(screen.getByRole('button', { name: /loading/i })).toBeDisabled()
   })
 
-  it('"Next puzzle" button is enabled after load completes', async () => {
+  it('"Next puzzle" button is disabled while puzzle is in progress', async () => {
     mockFetch.mockResolvedValue(MOCK_PUZZLE)
 
     render(<Home />)
 
+    await waitFor(() => {
+      expect(screen.getByTestId('puzzle-board')).toBeInTheDocument()
+    })
+
+    // Button is disabled while puzzle status is 'playing'
+    expect(screen.getByRole('button', { name: /next puzzle/i })).toBeDisabled()
+  })
+
+  it('"Next puzzle" button is enabled after puzzle complete', async () => {
+    mockFetch.mockResolvedValue(MOCK_PUZZLE)
+
+    render(<Home />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('puzzle-board')).toBeInTheDocument()
+    })
+
+    // Button is disabled while puzzle is in progress
+    expect(screen.getByRole('button', { name: /next puzzle/i })).toBeDisabled()
+
+    // Simulate puzzle complete - call status change first, then callback
+    await act(async () => {
+      capturedOnStatusChange?.('complete')
+      capturedOnComplete?.()
+    })
+
+    // Button should now be enabled
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /next puzzle/i })).not.toBeDisabled()
+    })
+  })
+
+  it('"Next puzzle" button is enabled after puzzle failed', async () => {
+    mockFetch.mockResolvedValue(MOCK_PUZZLE)
+
+    render(<Home />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('puzzle-board')).toBeInTheDocument()
+    })
+
+    // Button is disabled while puzzle is in progress
+    expect(screen.getByRole('button', { name: /next puzzle/i })).toBeDisabled()
+
+    // Simulate puzzle failed - call status change first, then callback
+    await act(async () => {
+      capturedOnStatusChange?.('failed')
+      capturedOnFailed?.()
+    })
+
+    // Button should now be enabled
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /next puzzle/i })).not.toBeDisabled()
     })
@@ -139,9 +215,20 @@ describe('Home page', () => {
     render(<Home />)
 
     await waitFor(() => {
+      expect(screen.getByTestId('puzzle-board')).toBeInTheDocument()
+    })
+
+    // Complete the puzzle first to enable the button - call status change first
+    await act(async () => {
+      capturedOnStatusChange?.('complete')
+      capturedOnComplete?.()
+    })
+
+    await waitFor(() => {
       expect(screen.getByRole('button', { name: /next puzzle/i })).not.toBeDisabled()
     })
 
+    // Click to load next puzzle
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /next puzzle/i }))
     })
