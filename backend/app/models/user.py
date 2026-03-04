@@ -25,6 +25,7 @@ class User(Base):
     last_login: Mapped[datetime | None] = mapped_column(
         TIMESTAMPTZ(timezone=True), nullable=True
     )
+    rating: Mapped[int] = mapped_column(default=1500, nullable=False)
 
     # relationships
     progress: Mapped[list["UserProgress"]] = relationship(

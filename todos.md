@@ -191,22 +191,22 @@ These two items are small enough to close in Sprint 2 before the exit gate.
 
 ### B11 — Rating system (backend)
 
-- [ ] **B11.1** Add `rating: int` column to `users` table (default 1500) — Alembic migration
-- [ ] **B11.2** Add `UserResponse` field `rating: int` and `GET /users/me` endpoint returning it
-- [ ] **B11.3** In `progress_service.py`: after inserting/updating progress row, apply Elo delta to `users.rating`:
+- [x] **B11.1** Add `rating: int` column to `users` table (default 1500) — Alembic migration `002_add_user_rating.py`
+- [x] **B11.2** Add `UserResponse` field `rating: int` and `GET /users/me` endpoint returning it
+- [x] **B11.3** In `progress_service.py`: after inserting/updating progress row, apply Elo delta to `users.rating`:
   - Formula: K=32; `expected = 1/(1+10^((puzzle_rating − user_rating)/400))`
   - Success: `Δ = +round(K × (1 − expected))`
   - Fail: `Δ = −round(K × expected)`
   - Clamp rating to `[400, 3000]` to prevent runaway values
-- [ ] **B11.4** Return updated `user_rating` in `SubmitResponse` so frontend can display the change
-- [ ] **B11.5** Tests: `test_rating_increases_on_success`, `test_rating_decreases_on_fail`, `test_rating_clamped`
+- [x] **B11.4** Return updated `user_rating` in `SubmitResponse` so frontend can display the change
+- [x] **B11.5** Tests: `test_rating_increases_on_success`, `test_rating_decreases_on_fail`, `test_rating_clamped`
 
 ### B12 — Rating-based puzzle selection (backend)
 
-- [ ] **B12.1** Add optional `user_rating: int | None` param to `get_random_puzzle` service
-- [ ] **B12.2** When `user_rating` is provided: filter `WHERE rating BETWEEN (user_rating−200) AND (user_rating+200)` after TABLESAMPLE; if result is empty, fall back to unconstrained TABLESAMPLE
-- [ ] **B12.3** Wire `GET /puzzles/random` to read `user_rating` from current user (via `get_optional_user`); guests get pure random
-- [ ] **B12.4** Tests: `test_random_puzzle_uses_rating_window`, `test_random_puzzle_falls_back_on_empty_sample`
+- [x] **B12.1** Add optional `user_rating: int | None` param to `get_random_puzzle` service
+- [x] **B12.2** When `user_rating` is provided: filter `WHERE rating BETWEEN (user_rating−200) AND (user_rating+200)` after TABLESAMPLE; if result is empty, fall back to unconstrained TABLESAMPLE
+- [x] **B12.3** Wire `GET /puzzles/random` to read `user_rating` from current user (via `get_optional_user`); guests get pure random
+- [x] **B12.4** Tests: `test_random_puzzle_uses_rating_window`, `test_random_puzzle_falls_back_on_empty_sample`
 
 ### F10 — King check highlight (frontend)
 

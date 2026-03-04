@@ -23,5 +23,6 @@ class UserResponse(BaseModel):
     id: UUID
     email: str
     created_at: datetime
+    rating: int = 1500
 
     model_config = {"from_attributes": True}

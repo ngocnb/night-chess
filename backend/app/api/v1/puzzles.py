@@ -16,9 +16,17 @@ router = APIRouter()
 
 
 @router.get("/random", response_model=PuzzleResponse)
-async def random_puzzle(db: AsyncSession = Depends(get_db)):
-    """Return a single random chess puzzle."""
-    row = await get_random_puzzle(db)
+async def random_puzzle(
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+):
+    """Return a single random chess puzzle.
+
+    If user is authenticated, uses their rating to filter puzzles (±200 window).
+    Guests receive a purely random puzzle.
+    """
+    user_rating = user.rating if user else None
+    row = await get_random_puzzle(db, user_rating=user_rating)
     if row is None:
         raise HTTPException(status_code=503, detail="No puzzles available")
     return {
@@ -54,7 +62,7 @@ async def submit_puzzle(
         )
 
     # Submit result
-    progress = await submit_result(
+    progress, new_rating = await submit_result(
         db, user.id, puzzle_id, request.result, request.time_spent_ms
     )
 
@@ -62,4 +70,5 @@ async def submit_puzzle(
         puzzle_id=puzzle_id,
         result=progress.result,
         solved_at=progress.solved_at,
+        new_rating=new_rating,
     )

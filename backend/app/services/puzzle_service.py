@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-async def get_random_puzzle(db: AsyncSession):
+async def get_random_puzzle(db: AsyncSession, user_rating: int | None = None):
     """
     Return a random puzzle row as a mapping, or None if the table is empty.
 
@@ -13,7 +13,31 @@ async def get_random_puzzle(db: AsyncSession):
        Samples ~350 rows at the page level, returns one. O(1) relative to table size.
     2. Fallback: random OFFSET — only triggers if TABLESAMPLE returns nothing (rare on large tables).
        Benchmarked at 357ms; acceptable as an emergency fallback only.
+
+    If user_rating is provided:
+    1. First try TABLESAMPLE with rating filter (±200 window)
+    2. If no result, fall back to unconstrained TABLESAMPLE
+    3. If still no result, use OFFSET fallback
     """
+    if user_rating is not None:
+        # Try rating-filtered sample first
+        min_rating = user_rating - 200
+        max_rating = user_rating + 200
+        result = await db.execute(
+            text(
+                "SELECT id, fen, moves, rating, themes FROM puzzles TABLESAMPLE SYSTEM(0.01) "
+                "WHERE rating BETWEEN :min_rating AND :max_rating LIMIT 1"
+            ),
+            {"min_rating": min_rating, "max_rating": max_rating},
+        )
+        row = result.mappings().first()
+
+        if row is not None:
+            return row
+
+        # Rating-filtered sample returned nothing, fall through to unconstrained
+
+    # Unconstrained TABLESAMPLE
     result = await db.execute(
         text("SELECT id, fen, moves, rating, themes FROM puzzles TABLESAMPLE SYSTEM(0.01) LIMIT 1")
     )

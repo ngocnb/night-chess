@@ -13,6 +13,7 @@ class SubmitResponse(BaseModel):
     puzzle_id: str
     result: str
     solved_at: datetime
+    new_rating: int
 
 
 class ProgressItem(BaseModel):

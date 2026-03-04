@@ -56,3 +56,5 @@ All items implemented and tested. 31 frontend tests pass.
 - Privacy policy page at `/privacy`
 - 100+ real Lichess puzzles manually tested across themes — launch blocker
 - Production deploy to self-hosted server via GitHub Actions (ADR-004)
+
+claude --resume 4eeb6b6c-98c5-45d4-9d2d-90b7a93614a9                                
